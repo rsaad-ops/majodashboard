@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Major Flexmat Marketing Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=Public+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+/* Layout: dashboard column on the left, chat docked on the right; stacks below 1000px. */
+:root {
+  color-scheme: light;
+  --bg: #f4f6f8;
+  --surface: #fcfcfb;
+  --ink: #0f1720;
+  --ink-2: #4b5563;
+  --ink-3: #7b8592;
+  --line: #e2e6ea;
+  --accent: #2a78d6;
+  --accent-soft: #e3eefb;
+  --series-2: #eb6834;
+  --good: #0a7d0a;
+  --bad: #c43535;
+  --warn-bg: #fff6e0;
+  --warn-ink: #7a5300;
+  --font-display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --font-body: "Public Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #111416;
+    --surface: #1a1d20;
+    --ink: #eef1f3;
+    --ink-2: #b6bdc5;
+    --ink-3: #8a929b;
+    --line: #2c3136;
+    --accent: #3987e5;
+    --accent-soft: #1d2b3c;
+    --series-2: #d95926;
+    --good: #2fbf4a;
+    --bad: #f07070;
+    --warn-bg: #3a2f12;
+    --warn-ink: #f3cf7a;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #111416;
+  --surface: #1a1d20;
+  --ink: #eef1f3;
+  --ink-2: #b6bdc5;
+  --ink-3: #8a929b;
+  --line: #2c3136;
+  --accent: #3987e5;
+  --accent-soft: #1d2b3c;
+  --series-2: #d95926;
+  --good: #2fbf4a;
+  --bad: #f07070;
+  --warn-bg: #3a2f12;
+  --warn-ink: #f3cf7a;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body { background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 14px; line-height: 1.5; }
+h1, h2, h3 { font-family: var(--font-display); margin: 0; text-wrap: balance; }
+h1 { font-size: 20px; font-weight: 700; letter-spacing: -0.01em; }
+h2 { font-size: 16px; font-weight: 600; }
+h3 { font-size: 13px; font-weight: 600; color: var(--ink-2); text-transform: uppercase; letter-spacing: 0.04em; }
+a { color: var(--accent); }
+button { font: inherit; cursor: pointer; }
+button:focus-visible, input:focus-visible, textarea:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.app { display: grid; grid-template-columns: minmax(0, 1fr) 400px; height: 100%; }
+.main { overflow-y: auto; padding: 20px 24px 40px; display: flex; flex-direction: column; gap: 20px; }
+.topbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+.topbar .sub { color: var(--ink-3); font-size: 13px; }
+.controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--surface); }
+.seg button { border: 0; background: transparent; padding: 6px 12px; color: var(--ink-2); }
+.seg button[aria-pressed="true"] { background: var(--accent); color: #fff; }
+.btn { border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 8px; padding: 6px 12px; }
+.btn:hover { border-color: var(--accent); }
+
+.chips { display: flex; gap: 8px; flex-wrap: wrap; }
+.chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 500; border: 1px solid var(--line); background: var(--surface); color: var(--ink-2); }
+.chip .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ink-3); }
+.chip.ok .dot { background: var(--good); }
+.chip.bad .dot { background: var(--bad); }
+.chip.off .dot { background: transparent; border: 1.5px solid var(--ink-3); }
+
+.section { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 18px; display: flex; flex-direction: column; gap: 16px; }
+.section-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.section-head .meta { color: var(--ink-3); font-size: 12px; }
+
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+.kpi { border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 2px; }
+.kpi .label { font-size: 12px; color: var(--ink-2); }
+.kpi .value { font-family: var(--font-display); font-size: 24px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.kpi .delta { font-size: 12px; font-variant-numeric: tabular-nums; color: var(--ink-3); }
+.kpi .delta.up { color: var(--good); }
+.kpi .delta.down { color: var(--bad); }
+
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+.panel { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.chart-box { position: relative; height: 200px; }
+
+.tbl-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th { font-weight: 600; color: var(--ink-3); font-size: 12px; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+td.txt { max-width: 280px; overflow: hidden; text-overflow: ellipsis; }
+tr:hover td { background: var(--accent-soft); }
+
+.notice { background: var(--warn-bg); color: var(--warn-ink); border-radius: 8px; padding: 12px 14px; font-size: 13px; }
+.notice a { color: inherit; font-weight: 600; }
+.loading { color: var(--ink-3); font-size: 13px; padding: 8px 0; }
+.skeleton { height: 70px; border-radius: 10px; background: linear-gradient(90deg, var(--line), var(--bg), var(--line)); background-size: 200% 100%; animation: sk 1.4s infinite; }
+@keyframes sk { to { background-position: -200% 0; } }
+@media (prefers-reduced-motion: reduce) { .skeleton { animation: none; } }
+
+.login { position: fixed; inset: 0; background: var(--bg); display: grid; place-items: center; z-index: 10; padding: 16px; }
+.login[hidden] { display: none; }
+.login-card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 24px; width: min(360px, 100%); display: flex; flex-direction: column; gap: 10px; }
+.login-card input { border: 1px solid var(--line); border-radius: 8px; padding: 9px 11px; background: var(--bg); color: var(--ink); font: inherit; }
+.login-card button { background: var(--accent); color: #fff; border: 0; border-radius: 8px; padding: 9px 14px; font-weight: 600; }
+.login-err { color: var(--bad); font-size: 13px; margin: 0; min-height: 1em; }
+/* Chat */
+.chat { border-left: 1px solid var(--line); background: var(--surface); display: flex; flex-direction: column; min-height: 0; }
+.chat-head { padding: 16px 18px 12px; border-bottom: 1px solid var(--line); }
+.chat-head p { margin: 4px 0 0; color: var(--ink-3); font-size: 12px; }
+.msgs { flex: 1; overflow-y: auto; padding: 16px 18px; display: flex; flex-direction: column; gap: 14px; }
+.msg { max-width: 100%; }
+.msg.user { align-self: flex-end; background: var(--accent); color: #fff; padding: 8px 12px; border-radius: 12px 12px 2px 12px; max-width: 85%; white-space: pre-wrap; }
+.msg.bot { color: var(--ink); }
+.msg.bot p { margin: 0 0 8px; }
+.msg.bot ul, .msg.bot ol { margin: 0 0 8px; padding-left: 20px; }
+.msg.bot table { font-size: 12px; margin: 6px 0 10px; }
+.msg.bot code { background: var(--bg); padding: 1px 4px; border-radius: 4px; font-size: 12px; }
+.msg .tool { font-size: 12px; color: var(--ink-3); margin-bottom: 6px; display: flex; flex-direction: column; gap: 2px; }
+.msg .err { color: var(--bad); }
+.suggest { display: flex; flex-direction: column; gap: 6px; }
+.suggest button { text-align: left; border: 1px solid var(--line); background: var(--bg); color: var(--ink); border-radius: 8px; padding: 8px 10px; font-size: 13px; }
+.suggest button:hover { border-color: var(--accent); }
+.composer { border-top: 1px solid var(--line); padding: 12px 14px; display: flex; gap: 8px; align-items: flex-end; }
+.composer textarea { flex: 1; resize: none; border: 1px solid var(--line); border-radius: 10px; padding: 9px 11px; background: var(--bg); color: var(--ink); font: inherit; min-height: 40px; max-height: 140px; }
+.composer button { background: var(--accent); color: #fff; border: 0; border-radius: 10px; padding: 9px 14px; font-weight: 600; }
+.composer button:disabled { opacity: 0.5; cursor: default; }
+
+@media (max-width: 1000px) {
+  .app { grid-template-columns: 1fr; height: auto; }
+  html, body { height: auto; }
+  .main { overflow: visible; padding: 16px; }
+  .chat { border-left: 0; border-top: 1px solid var(--line); height: 80vh; }
+}
+</style>
+</head>
+<body>
+<div class="login" id="login" hidden>
+  <form class="login-card" id="loginForm">
+    <h2>Major Flexmat · Marketing</h2>
+    <label for="pw">Dashboard password</label>
+    <input id="pw" type="password" autocomplete="current-password" required>
+    <p class="login-err" id="loginErr" role="alert"></p>
+    <button type="submit">Open dashboard</button>
+  </form>
+</div>
+<div class="app">
+  <main class="main" id="main">
+    <header class="topbar">
+      <div>
+        <h1>Major Flexmat · Marketing</h1>
+        <div class="sub" id="rangeLabel">majorflexmat.com</div>
+      </div>
+      <div class="controls">
+        <div class="seg" role="group" aria-label="Date range">
+          <button type="button" data-days="7" aria-pressed="false">7 days</button>
+          <button type="button" data-days="28" aria-pressed="true">28 days</button>
+          <button type="button" data-days="90" aria-pressed="false">90 days</button>
+        </div>
+        <button class="btn" type="button" id="refreshBtn">Refresh</button>
+      </div>
+    </header>
+    <div class="chips" id="chips">
+      <span class="chip"><span class="dot"></span>Search Console</span>
+      <span class="chip"><span class="dot"></span>Google Analytics 4</span>
+      <span class="chip"><span class="dot"></span>Google Ads</span>
+    </div>
+
+    <section class="section" id="sc">
+      <div class="section-head"><h2>Search Console</h2><span class="meta" id="scMeta">Loading…</span></div>
+      <div class="kpis" id="scKpis"><div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div></div>
+      <div class="grid2">
+        <div class="panel"><h3>Clicks per day</h3><div class="chart-box"><canvas id="scClicks" aria-label="Clicks per day"></canvas></div></div>
+        <div class="panel"><h3>Impressions per day</h3><div class="chart-box"><canvas id="scImpr" aria-label="Impressions per day"></canvas></div></div>
+      </div>
+      <div class="grid2">
+        <div class="panel"><h3>Top search queries</h3><div class="tbl-wrap" id="scQueries"><div class="loading">Loading…</div></div></div>
+        <div class="panel"><h3>Top pages</h3><div class="tbl-wrap" id="scPages"><div class="loading">Loading…</div></div></div>
+      </div>
+      <div class="grid2">
+        <div class="panel"><h3>By device</h3><div class="tbl-wrap" id="scDevice"><div class="loading">Loading…</div></div></div>
+        <div class="panel"><h3>Branded vs non-branded</h3><div class="tbl-wrap" id="scBrand"><div class="loading">Loading…</div></div></div>
+      </div>
+    </section>
+
+    <section class="section" id="ga">
+      <div class="section-head"><h2>Google Analytics 4</h2><div class="controls"><span class="meta" id="gaMeta">Loading…</span><label for="gaProp" class="meta">Property</label><select id="gaProp" class="btn"><option value="372353886">Major Flexmat</option><option value="362931656">Portail</option></select></div></div>
+      <div id="gaBody"><div class="kpis"><div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div></div></div>
+    </section>
+
+    <section class="section" id="ads">
+      <div class="section-head"><h2>Google Ads</h2><span class="meta" id="adsMeta"></span></div>
+      <div id="adsBody"><div class="loading">Checking connection…</div></div>
+    </section>
+  </main>
+
+  <aside class="chat" aria-label="Ask about your data">
+    <div class="chat-head">
+      <h2>Ask your data</h2>
+      <p>Answers come from live queries to Search Console, GA4 and Google Ads.</p>
+    </div>
+    <div class="msgs" id="msgs">
+      <div class="msg bot" id="welcome">
+        <p>Ask anything about your traffic, search performance or ads. Some examples:</p>
+        <div class="suggest">
+          <button type="button">Which search queries lost the most clicks this week compared with the week before?</button>
+          <button type="button">Which pages get lots of impressions but a low CTR?</button>
+          <button type="button">Which queries rank in positions 5–15 and could reach page one?</button>
+          <button type="button">How is organic search traffic trending over the last 28 days?</button>
+        </div>
+      </div>
+    </div>
+    <form class="composer" id="composer">
+      <label for="q" class="sr" style="position:absolute;left:-9999px">Your question</label>
+      <textarea id="q" rows="1" placeholder="Ask a question…"></textarea>
+      <button type="submit" id="sendBtn">Ask</button>
+    </form>
+  </aside>
+</div>
+
+<script>
+const SC_CONNECT = "https://onboard.windsor.ai/?datasource=searchconsole";
+const GA_CONNECT = "https://onboard.windsor.ai/?datasource=googleanalytics4";
+const ADS_CONNECT = "https://onboard.windsor.ai/?datasource=google_ads";
+let PASSWORD = "";
+try { PASSWORD = sessionStorage.getItem("dash-pass") || ""; } catch {}
+
+let days = 28;
+let unlocked = false;
+const charts = {};
+
+/* ---------- helpers ---------- */
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const fmtInt = (n) => (n == null || isNaN(n) ? "–" : Math.round(n).toLocaleString("en-CA"));
+const fmtPct = (n, d = 1) => (n == null || isNaN(n) ? "–" : (n * 100).toFixed(d) + "%");
+const fmtDec = (n, d = 1) => (n == null || isNaN(n) ? "–" : Number(n).toFixed(d));
+const fmtMoney = (n) => (n == null || isNaN(n) ? "–" : "$" + Number(n).toLocaleString("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+const iso = (d) => d.toISOString().slice(0, 10);
+const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
+function todayLocal() { const n = new Date(); return new Date(Date.UTC(n.getFullYear(), n.getMonth(), n.getDate())); }
+
+function periods(lagDays) {
+  const end = addDays(todayLocal(), -lagDays);
+  const start = addDays(end, -(days - 1));
+  const pEnd = addDays(start, -1);
+  const pStart = addDays(pEnd, -(days - 1));
+  return { start: iso(start), end: iso(end), pStart: iso(pStart), pEnd: iso(pEnd) };
+}
+
+function errText(e) {
+  if (!e) return "Unknown error";
+  return e.message || e.code || (typeof e === "string" ? e : JSON.stringify(e));
+}
+
+async function api(path, body) {
+  const res = await fetch(path, { method: "POST", headers: { "content-type": "application/json", "x-dashboard-password": PASSWORD }, body: JSON.stringify(body) });
+  let data = null; try { data = await res.json(); } catch {}
+  if (res.status === 401) { showLogin("That password didn't work. Try again."); throw { code: "unauthorized", message: "Password required" }; }
+  if (!res.ok) throw { code: "http_" + res.status, message: (data && data.error) || `Request failed (${res.status})` };
+  return data;
+}
+
+async function getData(input) {
+  const p = await api("/api/data", input);
+  if (p && Array.isArray(p.data)) return p.data;
+  throw { code: "bad_payload", message: "Unexpected response from the data service." };
+}
+
+/* run at most 3 pulls at once (Windsor allows 5 per user) */
+function limiter(max) {
+  let active = 0; const q = [];
+  const next = () => { if (active >= max || !q.length) return; active++; const { fn, res, rej } = q.shift(); fn().then(res, rej).finally(() => { active--; next(); }); };
+  return (fn) => new Promise((res, rej) => { q.push({ fn, res, rej }); next(); });
+}
+const limit = limiter(3);
+const pull = (input) => limit(() => getData(input));
+
+const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+
+function lineChart(id, labels, values, label, fmt) {
+  if (charts[id]) charts[id].destroy();
+  const accent = css("--accent"), ink3 = css("--ink-3"), line = css("--line");
+  const ctx = $(id).getContext("2d");
+  const grad = ctx.createLinearGradient(0, 0, 0, 200);
+  grad.addColorStop(0, accent + "40"); grad.addColorStop(1, accent + "00");
+  charts[id] = new Chart(ctx, {
+    type: "line",
+    data: { labels, datasets: [{ label, data: values, borderColor: accent, backgroundColor: grad, fill: true, borderWidth: 2, tension: 0.25, pointRadius: 0, pointHoverRadius: 5, pointHoverBackgroundColor: accent }] },
+    options: {
+      maintainAspectRatio: false, animation: false,
+      interaction: { mode: "index", intersect: false },
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: (c) => `${label}: ${fmt(c.parsed.y)}` } } },
+      scales: {
+        x: { grid: { display: false }, border: { color: line }, ticks: { color: ink3, maxTicksLimit: 7, maxRotation: 0, callback: function (v) { const s = this.getLabelForValue(v); return s.slice(5); } } },
+        y: { beginAtZero: true, grid: { color: line }, border: { display: false }, ticks: { color: ink3, maxTicksLimit: 5, callback: (v) => fmt(v) } }
+      }
+    }
+  });
+}
+
+function kpiTile(label, value, cur, prev, { invert = false, fmtDelta } = {}) {
+  let delta = "", cls = "";
+  if (prev != null && cur != null && !isNaN(prev) && !isNaN(cur)) {
+    if (fmtDelta) { const d = cur - prev; delta = (d >= 0 ? "+" : "") + fmtDelta(d) + " vs prev."; cls = (invert ? d < 0 : d > 0) ? "up" : d === 0 ? "" : "down"; }
+    else if (prev !== 0) { const r = (cur - prev) / prev; delta = (r >= 0 ? "▲ " : "▼ ") + Math.abs(r * 100).toFixed(1) + "% vs prev."; cls = (invert ? r < 0 : r > 0) ? "up" : r === 0 ? "" : "down"; }
+  }
+  return `<div class="kpi"><span class="label">${esc(label)}</span><span class="value">${value}</span><span class="delta ${cls}">${delta || "&nbsp;"}</span></div>`;
+}
+
+function table(rows, cols) {
+  if (!rows.length) return `<div class="loading">No data for this period.</div>`;
+  return `<table><thead><tr>${cols.map((c) => `<th class="${c.num ? "num" : ""}">${esc(c.label)}</th>`).join("")}</tr></thead><tbody>${rows
+    .map((r) => `<tr>${cols.map((c) => `<td class="${c.num ? "num" : "txt"}" title="${c.num ? "" : esc(r[c.key])}">${c.fmt ? c.fmt(r[c.key], r) : esc(r[c.key])}</td>`).join("")}</tr>`)
+    .join("")}</tbody></table>`;
+}
+
+function setChip(i, state, text) {
+  const chip = $("chips").children[i];
+  chip.className = "chip " + state;
+  chip.innerHTML = `<span class="dot"></span>${esc(text)}`;
+}
+
+const isTrialErr = (m) => /trial includes the last 30 days|older data/i.test(m);
+const TRIAL_MSG = `Your Windsor.ai trial only includes the last 30 days of data. Pick 7 or 28 days, or <a href="https://onboard.windsor.ai/app/pricing" target="_blank" rel="noopener">upgrade Windsor.ai</a> to see older data and period-over-period changes.`;
+/* previous-period pulls are optional: on the trial they fall outside the 30-day window */
+const pullPrev = (input) => pull(input).catch((e) => (isTrialErr(errText(e)) ? null : Promise.reject(e)));
+const isAuthErr = (m) => /invalid_grant|expired|revoked|No .* accounts are configured|not configured|reconnect/i.test(m);
+
+/* ---------- Search Console ---------- */
+async function loadSC() {
+  const P = periods(2);
+  $("scMeta").textContent = `${P.start} to ${P.end} · compared with ${P.pStart} to ${P.pEnd}`;
+  const base = { connector: "searchconsole" };
+  try {
+    const [cur, prev, queries, pages, device, brand] = await Promise.all([
+      pull({ ...base, fields: ["date", "clicks", "impressions", "position"], date_from: P.start, date_to: P.end, reasoning: "dashboard daily Search Console trend" }),
+      pullPrev({ ...base, fields: ["date", "clicks", "impressions", "position"], date_from: P.pStart, date_to: P.pEnd, reasoning: "dashboard previous-period Search Console" }),
+      pull({ ...base, fields: ["query", "clicks", "impressions", "ctr", "position"], date_from: P.start, date_to: P.end, reasoning: "dashboard top queries" }),
+      pull({ ...base, fields: ["page", "clicks", "impressions", "ctr", "position"], date_from: P.start, date_to: P.end, reasoning: "dashboard top pages" }),
+      pull({ ...base, fields: ["device", "clicks", "impressions", "ctr", "position"], date_from: P.start, date_to: P.end, reasoning: "dashboard device split" }),
+      pull({ ...base, fields: ["branded_vs_nonbranded", "clicks", "impressions", "ctr", "position"], date_from: P.start, date_to: P.end, reasoning: "dashboard branded split" })
+    ]);
+    setChip(0, "ok", "Search Console");
+    const agg = (rows) => {
+      const c = rows.reduce((s, r) => s + (+r.clicks || 0), 0);
+      const i = rows.reduce((s, r) => s + (+r.impressions || 0), 0);
+      const pw = rows.reduce((s, r) => s + (+r.position || 0) * (+r.impressions || 0), 0);
+      return { clicks: c, impr: i, ctr: i ? c / i : null, pos: i ? pw / i : null };
+    };
+    const byDate = {};
+    cur.forEach((r) => { const d = String(r.date).slice(0, 10); (byDate[d] = byDate[d] || []).push(r); });
+    const a = agg(cur), b = prev ? agg(prev) : {};
+    $("scMeta").textContent = prev ? `${P.start} to ${P.end} · compared with ${P.pStart} to ${P.pEnd}` : `${P.start} to ${P.end} · no comparison (trial: last 30 days only)`;
+    $("scKpis").innerHTML =
+      kpiTile("Clicks", fmtInt(a.clicks), a.clicks, b.clicks) +
+      kpiTile("Impressions", fmtInt(a.impr), a.impr, b.impr) +
+      kpiTile("CTR", fmtPct(a.ctr, 2), a.ctr, b.ctr, { fmtDelta: (d) => (d * 100).toFixed(2) + " pts" }) +
+      kpiTile("Avg. position", fmtDec(a.pos), a.pos, b.pos, { invert: true, fmtDelta: (d) => d.toFixed(1) });
+    const labels = []; for (let d = new Date(P.start); iso(d) <= P.end; d = addDays(d, 1)) labels.push(iso(d));
+    const sumOn = (d, k) => (byDate[d] || []).reduce((s, r) => s + (+r[k] || 0), 0);
+    lineChart("scClicks", labels, labels.map((d) => sumOn(d, "clicks")), "Clicks", fmtInt);
+    lineChart("scImpr", labels, labels.map((d) => sumOn(d, "impressions")), "Impressions", fmtInt);
+
+    const top = (rows, n) => rows.slice().sort((x, y) => (y.clicks - x.clicks) || (y.impressions - x.impressions)).slice(0, n);
+    const stdCols = [
+      { key: "clicks", label: "Clicks", num: true, fmt: fmtInt },
+      { key: "impressions", label: "Impr.", num: true, fmt: fmtInt },
+      { key: "ctr", label: "CTR", num: true, fmt: (v) => fmtPct(v, 1) },
+      { key: "position", label: "Pos.", num: true, fmt: (v) => fmtDec(v) }
+    ];
+    $("scQueries").innerHTML = table(top(queries, 15), [{ key: "query", label: "Query" }, ...stdCols]);
+    $("scPages").innerHTML = table(top(pages, 15).map((r) => ({ ...r, page: String(r.page).replace(/^https?:\/\/(www\.)?majorflexmat\.com/, "") || "/" })), [{ key: "page", label: "Page" }, ...stdCols]);
+    $("scDevice").innerHTML = table(top(device, 5), [{ key: "device", label: "Device" }, ...stdCols]);
+    $("scBrand").innerHTML = table(top(brand, 5), [{ key: "branded_vs_nonbranded", label: "Type" }, ...stdCols]);
+  } catch (e) {
+    const m = errText(e);
+    setChip(0, isTrialErr(m) ? "ok" : "bad", "Search Console" + (isTrialErr(m) ? "" : ": " + (isAuthErr(m) ? "reconnect" : "error")));
+    $("scMeta").textContent = "";
+    const msg = isTrialErr(m) ? TRIAL_MSG : isAuthErr(m) ? `The Search Console connection needs to be renewed. <a href="${SC_CONNECT}" target="_blank" rel="noopener">Reconnect Search Console</a>, then press Refresh.` : esc(m);
+    ["scKpis", "scQueries", "scPages", "scDevice", "scBrand"].forEach((id) => ($(id).innerHTML = ""));
+    $("scKpis").innerHTML = `<div class="notice">${msg}</div>`;
+  }
+}
+
+/* ---------- GA4 ---------- */
+async function loadGA() {
+  const P = periods(1);
+  $("gaMeta").textContent = `${P.start} to ${P.end}`;
+  const base = { connector: "googleanalytics4", accounts: [$("gaProp").value] };
+  try {
+    const [totCur, totPrev, daily, channels, landing] = await Promise.all([
+      pull({ ...base, fields: ["sessions", "totalusers", "newusers", "conversions", "engagement_rate"], date_from: P.start, date_to: P.end, reasoning: "dashboard GA4 totals" }),
+      pullPrev({ ...base, fields: ["sessions", "totalusers", "newusers", "conversions", "engagement_rate"], date_from: P.pStart, date_to: P.pEnd, reasoning: "dashboard GA4 previous-period totals" }),
+      pull({ ...base, fields: ["date", "sessions"], date_from: P.start, date_to: P.end, reasoning: "dashboard GA4 daily sessions" }),
+      pull({ ...base, fields: ["session_default_channel_group", "sessions", "conversions", "engagement_rate"], date_from: P.start, date_to: P.end, reasoning: "dashboard GA4 channels" }),
+      pull({ ...base, fields: ["landing_page", "sessions", "conversions", "engagement_rate"], date_from: P.start, date_to: P.end, reasoning: "dashboard GA4 landing pages" })
+    ]);
+    setChip(1, "ok", "Google Analytics 4");
+    const sum = (rows, k) => rows.reduce((s, r) => s + (+r[k] || 0), 0);
+    const wavg = (rows, k) => { const s = sum(rows, "sessions"); return s ? rows.reduce((t, r) => t + (+r[k] || 0) * (+r.sessions || 0), 0) / s : null; };
+    const c = { s: sum(totCur, "sessions"), u: sum(totCur, "totalusers"), n: sum(totCur, "newusers"), k: sum(totCur, "conversions"), e: wavg(totCur, "engagement_rate") };
+    const p = totPrev ? { s: sum(totPrev, "sessions"), u: sum(totPrev, "totalusers"), n: sum(totPrev, "newusers"), k: sum(totPrev, "conversions"), e: wavg(totPrev, "engagement_rate") } : {};
+    $("gaMeta").textContent = totPrev ? `${P.start} to ${P.end} · compared with ${P.pStart} to ${P.pEnd}` : `${P.start} to ${P.end} · no comparison (trial: last 30 days only)`;
+    $("gaBody").innerHTML = `
+      <div class="kpis">
+        ${kpiTile("Sessions", fmtInt(c.s), c.s, p.s)}
+        ${kpiTile("Users", fmtInt(c.u), c.u, p.u)}
+        ${kpiTile("New users", fmtInt(c.n), c.n, p.n)}
+        ${kpiTile("Key events", fmtInt(c.k), c.k, p.k)}
+        ${kpiTile("Engagement rate", fmtPct(c.e), c.e, p.e, { fmtDelta: (d) => (d * 100).toFixed(1) + " pts" })}
+      </div>
+      <div class="panel" style="margin-top:16px"><h3>Sessions per day</h3><div class="chart-box"><canvas id="gaSessions" aria-label="Sessions per day"></canvas></div></div>
+      <div class="grid2" style="margin-top:16px">
+        <div class="panel"><h3>Channels</h3><div class="tbl-wrap" id="gaChannels"></div></div>
+        <div class="panel"><h3>Top landing pages</h3><div class="tbl-wrap" id="gaLanding"></div></div>
+      </div>`;
+    const byD = {}; daily.forEach((r) => { const raw = String(r.date); const d = raw.length === 8 ? `${raw.slice(0, 4)}-${raw.slice(4, 6)}-${raw.slice(6)}` : raw.slice(0, 10); byD[d] = (byD[d] || 0) + (+r.sessions || 0); });
+    const labels = []; for (let d = new Date(P.start); iso(d) <= P.end; d = addDays(d, 1)) labels.push(iso(d));
+    lineChart("gaSessions", labels, labels.map((d) => byD[d] || 0), "Sessions", fmtInt);
+    const cols = (k, l) => [{ key: k, label: l }, { key: "sessions", label: "Sessions", num: true, fmt: fmtInt }, { key: "conversions", label: "Key events", num: true, fmt: fmtInt }, { key: "engagement_rate", label: "Engaged", num: true, fmt: (v) => fmtPct(v, 0) }];
+    const top = (rows, n) => rows.slice().sort((x, y) => y.sessions - x.sessions).slice(0, n);
+    $("gaChannels").innerHTML = table(top(channels, 10), cols("session_default_channel_group", "Channel"));
+    $("gaLanding").innerHTML = table(top(landing, 12), cols("landing_page", "Landing page"));
+  } catch (e) {
+    const m = errText(e);
+    setChip(1, isTrialErr(m) ? "ok" : "bad", "Google Analytics 4" + (isTrialErr(m) ? "" : ": " + (isAuthErr(m) ? "reconnect needed" : "error")));
+    $("gaMeta").textContent = "";
+    $("gaBody").innerHTML = `<div class="notice">${isTrialErr(m) ? TRIAL_MSG : isAuthErr(m)
+      ? `Google Analytics sign-in has expired. <a href="${GA_CONNECT}" target="_blank" rel="noopener">Reconnect Google Analytics</a> (tick the Analytics permission and pick the Major Flexmat property), then press Refresh.`
+      : "Couldn't load Google Analytics: " + esc(m)}</div>`;
+  }
+}
+
+/* ---------- Google Ads ---------- */
+async function loadAds() {
+  const P = periods(1);
+  $("adsMeta").textContent = `${P.start} to ${P.end}`;
+  try {
+    const rows = await pull({ connector: "google_ads", fields: ["campaign", "spend", "clicks", "impressions", "conversions"], date_from: P.start, date_to: P.end });
+    setChip(2, "ok", "Google Ads");
+    const sum = (k) => rows.reduce((s, r) => s + (+r[k] || 0), 0);
+    const sp = sum("spend"), cl = sum("clicks"), im = sum("impressions"), cv = sum("conversions");
+    $("adsBody").innerHTML = `<div class="kpis">
+        ${kpiTile("Spend", fmtMoney(sp))}${kpiTile("Clicks", fmtInt(cl))}${kpiTile("CTR", fmtPct(im ? cl / im : null, 2))}
+        ${kpiTile("Conversions", fmtDec(cv, 0))}${kpiTile("Cost / conv.", cv ? fmtMoney(sp / cv) : "–")}
+      </div>
+      <div class="panel" style="margin-top:16px"><h3>Campaigns</h3><div class="tbl-wrap">${table(rows.slice().sort((a, b) => b.spend - a.spend).slice(0, 15), [
+        { key: "campaign", label: "Campaign" }, { key: "spend", label: "Spend", num: true, fmt: fmtMoney }, { key: "clicks", label: "Clicks", num: true, fmt: fmtInt },
+        { key: "conversions", label: "Conv.", num: true, fmt: (v) => fmtDec(v, 1) }, { key: "cpa", label: "Cost / conv.", num: true, fmt: (v, r) => (r.conversions ? fmtMoney(r.spend / r.conversions) : "–") }])}</div></div>`;
+  } catch (e) {
+    const m = errText(e);
+    $("adsMeta").textContent = "";
+    if (/no google_ads accounts|not configured|no accounts/i.test(m)) {
+      setChip(2, "off", "Google Ads: not connected");
+      $("adsBody").innerHTML = `<div class="notice">Google Ads isn't linked in Windsor.ai yet. <a href="${ADS_CONNECT}" target="_blank" rel="noopener">Open Windsor.ai</a>, add Google Ads and select your ad account, then press Refresh.</div>`;
+    } else if (isTrialErr(m)) {
+      setChip(2, "ok", "Google Ads");
+      $("adsBody").innerHTML = `<div class="notice">${TRIAL_MSG}</div>`;
+    } else {
+      setChip(2, "bad", "Google Ads: error");
+      $("adsBody").innerHTML = `<div class="notice">${isAuthErr(m) ? `Google Ads needs to be reconnected in <a href="${ADS_CONNECT}" target="_blank" rel="noopener">Windsor.ai</a>.` : "Couldn't load Google Ads: " + esc(m)}</div>`;
+    }
+  }
+}
+
+function loadAll() {
+  if (!unlocked) return;
+  loadSC(); loadGA(); loadAds();
+}
+
+/* ---------- Chat ---------- */
+const history = []; // Anthropic-format messages
+let busy = false;
+
+function md(src) {
+  const lines = String(src).split("\n");
+  let out = "", i = 0;
+  const inline = (s) => esc(s).replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>").replace(/`([^`]+)`/g, "<code>$1</code>").replace(/\[([^\]]+)\]\((https?:[^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+  while (i < lines.length) {
+    const l = lines[i];
+    if (/^\s*\|.*\|\s*$/.test(l) && i + 1 < lines.length && /^\s*\|[\s:|-]+\|\s*$/.test(lines[i + 1])) {
+      const cells = (r) => r.trim().replace(/^\||\|$/g, "").split("|").map((c) => c.trim());
+      const head = cells(l); i += 2; const body = [];
+      while (i < lines.length && /^\s*\|.*\|\s*$/.test(lines[i])) { body.push(cells(lines[i])); i++; }
+      const isNum = (c) => /^[-+$]?[\d,.]+%?$/.test(c);
+      out += `<div class="tbl-wrap"><table><thead><tr>${head.map((h) => `<th>${inline(h)}</th>`).join("")}</tr></thead><tbody>${body.map((r) => `<tr>${r.map((c) => `<td class="${isNum(c) ? "num" : ""}">${inline(c)}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
+      continue;
+    }
+    if (/^\s*[-*]\s+/.test(l)) { out += "<ul>"; while (i < lines.length && /^\s*[-*]\s+/.test(lines[i])) { out += `<li>${inline(lines[i].replace(/^\s*[-*]\s+/, ""))}</li>`; i++; } out += "</ul>"; continue; }
+    if (/^\s*\d+[.)]\s+/.test(l)) { out += "<ol>"; while (i < lines.length && /^\s*\d+[.)]\s+/.test(lines[i])) { out += `<li>${inline(lines[i].replace(/^\s*\d+[.)]\s+/, ""))}</li>`; i++; } out += "</ol>"; continue; }
+    if (/^#{1,4}\s+/.test(l)) { out += `<p><strong>${inline(l.replace(/^#{1,4}\s+/, ""))}</strong></p>`; i++; continue; }
+    if (!l.trim()) { i++; continue; }
+    let para = l; i++;
+    while (i < lines.length && lines[i].trim() && !/^\s*([-*]|\d+[.)]|\||#)/.test(lines[i])) { para += " " + lines[i]; i++; }
+    out += `<p>${inline(para)}</p>`;
+  }
+  return out;
+}
+
+async function runQuery(a) {
+  const input = { connector: a.connector, fields: a.fields };
+  for (const k of ["date_from", "date_to", "date_preset", "filters", "accounts"]) if (a[k] && (!Array.isArray(a[k]) || a[k].length)) input[k] = a[k];
+  if (input.date_preset && input.date_from) delete input.date_preset;
+  let rows = await getData(input);
+  const total = rows.length;
+  if (a.sort_by) { const k = a.sort_by, dir = a.sort_dir === "asc" ? 1 : -1; rows = rows.slice().sort((x, y) => ((+x[k] || 0) - (+y[k] || 0)) * dir); }
+  const lim = Math.min(Math.max(+a.limit || 50, 1), 300);
+  return { total_rows: total, returned: Math.min(lim, total), rows: rows.slice(0, lim) };
+}
+
+function addMsg(cls, html) {
+  const d = document.createElement("div");
+  d.className = "msg " + cls; d.innerHTML = html;
+  $("msgs").appendChild(d); $("msgs").scrollTop = $("msgs").scrollHeight;
+  return d;
+}
+
+async function ask(q) {
+  q = q.trim();
+  if (!q || busy) return;
+  busy = true; $("sendBtn").disabled = true;
+  const w = $("welcome"); if (w) w.remove();
+  addMsg("user", esc(q));
+  const startLen = history.length;
+  history.push({ role: "user", content: q });
+  const bot = addMsg("bot", `<div class="tool"></div><div class="body"><p style="color:var(--ink-3)">Thinking…</p></div>`);
+  const toolBox = bot.querySelector(".tool"), body = bot.querySelector(".body");
+  try {
+    for (let round = 0; round < 10; round++) {
+      const r = await api("/api/chat", { messages: history, today: iso(todayLocal()) });
+      history.push({ role: "assistant", content: r.content });
+      const text = r.content.filter((c) => c.type === "text").map((c) => c.text).join("\n\n");
+      if (text) body.innerHTML = md(text);
+      if (r.stop_reason !== "tool_use") break;
+      const results = [];
+      for (const call of r.content.filter((c) => c.type === "tool_use")) {
+        const a = call.input || {};
+        const line = document.createElement("span");
+        const label = `Querying ${a.connector}: ${(a.fields || []).join(", ")}`;
+        line.textContent = "· " + label + "…"; toolBox.appendChild(line);
+        try {
+          const out = await runQuery(a);
+          line.textContent = "· " + label;
+          results.push({ type: "tool_result", tool_use_id: call.id, content: JSON.stringify(out) });
+        } catch (e) {
+          line.textContent = "· " + label + " (failed)";
+          results.push({ type: "tool_result", tool_use_id: call.id, content: "Error: " + errText(e), is_error: true });
+        }
+      }
+      history.push({ role: "user", content: results });
+      if (!text) body.innerHTML = `<p style="color:var(--ink-3)">Analyzing…</p>`;
+    }
+  } catch (e) {
+    history.length = startLen;
+    body.innerHTML = `<p class="err">${e.code === "unauthorized" ? "Enter the dashboard password, then ask again." : "Something went wrong: " + esc(errText(e))}</p>`;
+  } finally {
+    busy = false; $("sendBtn").disabled = false;
+    $("msgs").scrollTop = $("msgs").scrollHeight;
+  }
+}
+
+/* ---------- login ---------- */
+function showLogin(msg) {
+  unlocked = false;
+  try { sessionStorage.removeItem("dash-pass"); } catch {}
+  $("loginErr").textContent = msg || "";
+  $("login").hidden = false;
+  setTimeout(() => $("pw").focus(), 0);
+}
+async function tryUnlock(pw) {
+  PASSWORD = pw;
+  const res = await fetch("/api/data", { method: "POST", headers: { "content-type": "application/json", "x-dashboard-password": pw }, body: "{}" });
+  if (res.status === 401) { showLogin("That password didn't work. Try again."); return; }
+  try { sessionStorage.setItem("dash-pass", pw); } catch {}
+  $("login").hidden = true;
+  unlocked = true;
+  loadAll();
+}
+$("loginForm").addEventListener("submit", (e) => { e.preventDefault(); tryUnlock($("pw").value); });
+
+/* ---------- wiring ---------- */
+document.querySelectorAll(".seg button").forEach((b) => b.addEventListener("click", () => {
+  document.querySelectorAll(".seg button").forEach((x) => x.setAttribute("aria-pressed", "false"));
+  b.setAttribute("aria-pressed", "true");
+  days = +b.dataset.days; loadAll();
+}));
+$("refreshBtn").addEventListener("click", loadAll);
+$("gaProp").addEventListener("change", () => { if (unlocked) loadGA(); });
+$("composer").addEventListener("submit", (e) => { e.preventDefault(); const v = $("q").value; $("q").value = ""; ask(v); });
+$("q").addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); $("composer").requestSubmit(); } });
+$("q").addEventListener("input", (e) => { e.target.style.height = "auto"; e.target.style.height = Math.min(e.target.scrollHeight, 140) + "px"; });
+document.querySelectorAll(".suggest button").forEach((b) => b.addEventListener("click", () => ask(b.textContent)));
+
+if (PASSWORD) tryUnlock(PASSWORD); else showLogin();
+</script>
+</body>
+</html>
