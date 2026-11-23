@@ -1,6 +1,6 @@
 # Major Flexmat Marketing Dashboard
 
-Password-protected marketing dashboard for majorflexmat.com, hosted on Netlify. It shows Google Search Console, Google Analytics 4 and Google Ads data (through Windsor.ai) and has a chat panel for asking questions about the data.
+Password-protected marketing dashboard for majorflexmat.com, hosted on Netlify. It shows Google Search Console, Google Analytics 4, Google Ads, LinkedIn and YouTube data (through Windsor.ai) and has a chat panel for asking questions about the data.
 
 ## Structure
 

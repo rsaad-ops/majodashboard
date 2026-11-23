@@ -1,5 +1,5 @@
 // Calls the Windsor.ai Connectors API with the key stored in WINDSOR_API_KEY.
-const ALLOWED = new Set(["searchconsole", "googleanalytics4", "google_ads"])
+const ALLOWED = new Set(["searchconsole", "googleanalytics4", "google_ads", "linkedin_organic", "youtube"])
 
 export type WindsorQuery = {
   connector: string

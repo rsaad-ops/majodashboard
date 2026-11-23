@@ -13,7 +13,7 @@ const TOOLS = [
     input_schema: {
       type: "object" as const,
       properties: {
-        connector: { type: "string", enum: ["searchconsole", "googleanalytics4", "google_ads"] },
+        connector: { type: "string", enum: ["searchconsole", "googleanalytics4", "google_ads", "linkedin_organic", "youtube"] },
         fields: { type: "array", items: { type: "string" } },
         accounts: { type: "array", items: { type: "string" }, description: "Optional account ids, e.g. a GA4 property id" },
         date_from: { type: "string", description: "YYYY-MM-DD" },
@@ -34,7 +34,9 @@ function system(today: string, earliest: string) {
 Data comes from Windsor.ai through the query_data tool. Connectors:
 - "searchconsole": site sc-domain:majorflexmat.com. Fields: date, query, page, pagepath, device, country, clicks, impressions, ctr, position, branded_vs_nonbranded, search_appearance.
 - "googleanalytics4": two properties, account id "372353886" = Major Flexmat, "362931656" = Portail. Pass accounts to pick one; default to Major Flexmat unless the user asks about Portail or both. Fields: date, sessions, totalusers, newusers, conversions (key events), engagement_rate, engaged_sessions, bounce_rate, average_session_duration, session_default_channel_group, source_medium, landing_page, page_path, pagetitle, screen_page_views, devicecategory, country, city, event_name, event_count, totalrevenue, transactions.
-- "google_ads": may not be connected yet. Fields: date, campaign, spend, clicks, impressions, conversions.
+- "google_ads": account 941-336-1927 (Les industries fil métallique Major Ltée). Fields: date, campaign, spend, clicks, impressions, conversions.
+- "linkedin_organic": the MAJOR® FLEX-MAT® company page. Daily page fields: date, account_analytics_impression_count, account_analytics_click_count, account_analytics_like_count, account_analytics_comment_count, account_analytics_share_count, account_analytics_total_engagements, followers_gain_organic. Follower total: organization_follower_count. Per-post fields: share_text, share_title, share_published_time, share_post_type, share_url, share_impression_count, share_clicks_count, share_like_count, share_comment_count, share_total_engagements, share_engagement_rate, share_video_views. Follower breakdowns: country_follower_name + country_follower_counts, industry_follower_type + industry_follower_counts, seniority_follower_type + seniority_follower_counts, function_follower_type + function_follower_counts. Posts are often bilingual (English/French); quote only a short snippet.
+- "youtube": channel "Majorwire Industries". Fields: date, video, video_title, views, estimated_minutes_watched, average_view_duration, likes, comments, shares, subscribers_gained_channel, subscribers_lost_channel (use with date, not with video), traffic_source, country, device_type, subscriber_count, video_count, view_count (channel snapshot). YouTube Analytics lags about 3 days.
 Rules:
 - Always query before answering; never invent numbers.
 - The Windsor.ai account may be on a trial that only returns the last 30 days (from ${earliest}). If a query fails for that reason, explain the limit, offer what fits inside it (for example last 14 days vs the 14 days before), and mention upgrading Windsor.ai.

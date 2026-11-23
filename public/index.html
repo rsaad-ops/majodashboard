@@ -188,6 +188,8 @@ tr:hover td { background: var(--accent-soft); }
       <span class="chip"><span class="dot"></span>Search Console</span>
       <span class="chip"><span class="dot"></span>Google Analytics 4</span>
       <span class="chip"><span class="dot"></span>Google Ads</span>
+      <span class="chip"><span class="dot"></span>LinkedIn</span>
+      <span class="chip"><span class="dot"></span>YouTube</span>
     </div>
 
     <section class="section" id="sc">
@@ -216,12 +218,22 @@ tr:hover td { background: var(--accent-soft); }
       <div class="section-head"><h2>Google Ads</h2><span class="meta" id="adsMeta"></span></div>
       <div id="adsBody"><div class="loading">Checking connection…</div></div>
     </section>
+
+    <section class="section" id="li">
+      <div class="section-head"><h2>LinkedIn</h2><span class="meta" id="liMeta"></span></div>
+      <div id="liBody"><div class="kpis"><div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div></div></div>
+    </section>
+
+    <section class="section" id="yt">
+      <div class="section-head"><h2>YouTube</h2><span class="meta" id="ytMeta"></span></div>
+      <div id="ytBody"><div class="kpis"><div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div></div></div>
+    </section>
   </main>
 
   <aside class="chat" aria-label="Ask about your data">
     <div class="chat-head">
       <h2>Ask your data</h2>
-      <p>Answers come from live queries to Search Console, GA4 and Google Ads.</p>
+      <p>Answers come from live queries to Search Console, GA4, Google Ads, LinkedIn and YouTube.</p>
     </div>
     <div class="msgs" id="msgs">
       <div class="msg bot" id="welcome">
@@ -230,7 +242,7 @@ tr:hover td { background: var(--accent-soft); }
           <button type="button">Which search queries lost the most clicks this week compared with the week before?</button>
           <button type="button">Which pages get lots of impressions but a low CTR?</button>
           <button type="button">Which queries rank in positions 5–15 and could reach page one?</button>
-          <button type="button">How is organic search traffic trending over the last 28 days?</button>
+          <button type="button">Which LinkedIn posts got the best engagement this month, and what do they have in common?</button>
         </div>
       </div>
     </div>
@@ -488,9 +500,105 @@ async function loadAds() {
   }
 }
 
+/* ---------- LinkedIn ---------- */
+function dateRange(P) { const out = []; for (let d = new Date(P.start); iso(d) <= P.end; d = addDays(d, 1)) out.push(iso(d)); return out; }
+const normDate = (v) => { const r = String(v); return r.length === 8 ? `${r.slice(0, 4)}-${r.slice(4, 6)}-${r.slice(6)}` : r.slice(0, 10); };
+
+async function loadLI() {
+  const P = periods(1);
+  const base = { connector: "linkedin_organic" };
+  const dailyFields = ["date", "account_analytics_impression_count", "account_analytics_click_count", "account_analytics_total_engagements", "followers_gain_organic"];
+  try {
+    const [daily, prev, posts, fol] = await Promise.all([
+      pull({ ...base, fields: dailyFields, date_from: P.start, date_to: P.end }),
+      pullPrev({ ...base, fields: dailyFields, date_from: P.pStart, date_to: P.pEnd }),
+      pull({ ...base, fields: ["share_text", "share_title", "share_published_time", "share_impression_count", "share_clicks_count", "share_total_engagements", "share_engagement_rate"], date_from: P.start, date_to: P.end }),
+      pull({ ...base, fields: ["organization_follower_count"], date_preset: "last_7d" }).catch(() => [])
+    ]);
+    setChip(3, "ok", "LinkedIn");
+    $("liMeta").textContent = prev ? `${P.start} to ${P.end} · compared with ${P.pStart} to ${P.pEnd}` : `${P.start} to ${P.end} · no comparison (trial: last 30 days only)`;
+    const sum = (rows, k) => (rows || []).reduce((t, r) => t + (+r[k] || 0), 0);
+    const tot = (rows) => rows && { imp: sum(rows, "account_analytics_impression_count"), clk: sum(rows, "account_analytics_click_count"), eng: sum(rows, "account_analytics_total_engagements"), fol: sum(rows, "followers_gain_organic") };
+    const a = tot(daily), b = tot(prev) || {};
+    const rate = (x) => (x && x.imp ? x.eng / x.imp : null);
+    const followers = fol.length ? Math.max(...fol.map((r) => +r.organization_follower_count || 0)) : null;
+    $("liBody").innerHTML = `
+      <div class="kpis">
+        ${kpiTile("Followers", fmtInt(followers))}
+        ${kpiTile("New followers", fmtInt(a.fol), a.fol, b.fol)}
+        ${kpiTile("Impressions", fmtInt(a.imp), a.imp, b.imp)}
+        ${kpiTile("Clicks", fmtInt(a.clk), a.clk, b.clk)}
+        ${kpiTile("Engagement rate", fmtPct(rate(a)), rate(a), rate(prev ? b : null), { fmtDelta: (d) => (d * 100).toFixed(1) + " pts" })}
+      </div>
+      <div class="panel" style="margin-top:16px"><h3>Impressions per day</h3><div class="chart-box"><canvas id="liImp" aria-label="LinkedIn impressions per day"></canvas></div></div>
+      <div class="panel" style="margin-top:16px"><h3>Posts in this period</h3><div class="tbl-wrap" id="liPosts"></div></div>`;
+    const byD = {}; daily.forEach((r) => { const d = normDate(r.date); byD[d] = (byD[d] || 0) + (+r.account_analytics_impression_count || 0); });
+    const labels = dateRange(P);
+    lineChart("liImp", labels, labels.map((d) => byD[d] || 0), "Impressions", fmtInt);
+    const clean = (t) => String(t || "").replace(/\{hashtag\|\\?#\|([^}]*)\}/g, "#$1").replace(/@\[([^\]]+)\]\([^)]*\)/g, "$1").replace(/\s+/g, " ").trim();
+    const rows = posts.map((r) => ({ ...r, post: (clean(r.share_title) || clean(r.share_text)).slice(0, 90) || "(no text)", date: String(r.share_published_time || "").slice(0, 10) }))
+      .sort((x, y) => (+y.share_total_engagements || 0) - (+x.share_total_engagements || 0)).slice(0, 15);
+    $("liPosts").innerHTML = table(rows, [
+      { key: "post", label: "Post" }, { key: "date", label: "Published" },
+      { key: "share_impression_count", label: "Impr.", num: true, fmt: fmtInt },
+      { key: "share_clicks_count", label: "Clicks", num: true, fmt: fmtInt },
+      { key: "share_total_engagements", label: "Engagements", num: true, fmt: fmtInt },
+      { key: "share_engagement_rate", label: "Eng. rate", num: true, fmt: (v) => fmtPct(v, 1) }
+    ]);
+  } catch (e) {
+    const m = errText(e);
+    setChip(3, isTrialErr(m) ? "ok" : "bad", "LinkedIn" + (isTrialErr(m) ? "" : ": error"));
+    $("liBody").innerHTML = `<div class="notice">${isTrialErr(m) ? TRIAL_MSG : isAuthErr(m) ? `LinkedIn needs to be reconnected in <a href="https://onboard.windsor.ai/?datasource=linkedin_organic" target="_blank" rel="noopener">Windsor.ai</a>.` : "Couldn't load LinkedIn: " + esc(m)}</div>`;
+  }
+}
+
+/* ---------- YouTube ---------- */
+async function loadYT() {
+  const P = periods(3); // YouTube Analytics lags 2-3 days
+  const base = { connector: "youtube" };
+  const dailyFields = ["date", "views", "estimated_minutes_watched", "subscribers_gained_channel", "subscribers_lost_channel"];
+  try {
+    const [daily, prev, videos, chan] = await Promise.all([
+      pull({ ...base, fields: dailyFields, date_from: P.start, date_to: P.end }),
+      pullPrev({ ...base, fields: dailyFields, date_from: P.pStart, date_to: P.pEnd }),
+      pull({ ...base, fields: ["video", "video_title", "views", "estimated_minutes_watched", "likes"], date_from: P.start, date_to: P.end }),
+      pull({ ...base, fields: ["channel_title", "subscriber_count", "video_count", "view_count"], date_preset: "last_7d" }).catch(() => [])
+    ]);
+    setChip(4, "ok", "YouTube");
+    const c = chan[0] || {};
+    $("ytMeta").textContent = `${c.channel_title ? c.channel_title + " · " : ""}${P.start} to ${P.end}` + (prev ? ` · compared with ${P.pStart} to ${P.pEnd}` : " · no comparison (trial: last 30 days only)");
+    const sum = (rows, k) => (rows || []).reduce((t, r) => t + (+r[k] || 0), 0);
+    const tot = (rows) => rows && { v: sum(rows, "views"), m: sum(rows, "estimated_minutes_watched"), net: sum(rows, "subscribers_gained_channel") - sum(rows, "subscribers_lost_channel") };
+    const a = tot(daily), b = tot(prev) || {};
+    $("ytBody").innerHTML = `
+      <div class="kpis">
+        ${kpiTile("Subscribers", fmtInt(c.subscriber_count))}
+        ${kpiTile("Views", fmtInt(a.v), a.v, b.v)}
+        ${kpiTile("Watch time (hours)", fmtDec(a.m / 60, 1), a.m, b.m)}
+        ${kpiTile("Net new subscribers", fmtInt(a.net), a.net, b.net, { fmtDelta: (d) => fmtInt(d) })}
+        ${kpiTile("Public videos", fmtInt(c.video_count))}
+      </div>
+      <div class="panel" style="margin-top:16px"><h3>Views per day</h3><div class="chart-box"><canvas id="ytViews" aria-label="YouTube views per day"></canvas></div></div>
+      <div class="panel" style="margin-top:16px"><h3>Top videos</h3><div class="tbl-wrap" id="ytVideos"></div></div>`;
+    const byD = {}; daily.forEach((r) => { const d = normDate(r.date); byD[d] = (byD[d] || 0) + (+r.views || 0); });
+    const labels = dateRange(P);
+    lineChart("ytViews", labels, labels.map((d) => byD[d] || 0), "Views", fmtInt);
+    $("ytVideos").innerHTML = table(videos.slice().sort((x, y) => (+y.views || 0) - (+x.views || 0)).slice(0, 10), [
+      { key: "video_title", label: "Video", fmt: (v, r) => `<a href="https://www.youtube.com/watch?v=${esc(r.video)}" target="_blank" rel="noopener">${esc(v || r.video)}</a>` },
+      { key: "views", label: "Views", num: true, fmt: fmtInt },
+      { key: "estimated_minutes_watched", label: "Minutes", num: true, fmt: fmtInt },
+      { key: "likes", label: "Likes", num: true, fmt: fmtInt }
+    ]);
+  } catch (e) {
+    const m = errText(e);
+    setChip(4, isTrialErr(m) ? "ok" : "bad", "YouTube" + (isTrialErr(m) ? "" : ": error"));
+    $("ytBody").innerHTML = `<div class="notice">${isTrialErr(m) ? TRIAL_MSG : isAuthErr(m) ? `YouTube needs to be reconnected in <a href="https://onboard.windsor.ai/?datasource=youtube" target="_blank" rel="noopener">Windsor.ai</a>.` : "Couldn't load YouTube: " + esc(m)}</div>`;
+  }
+}
+
 function loadAll() {
   if (!unlocked) return;
-  loadSC(); loadGA(); loadAds();
+  loadSC(); loadGA(); loadAds(); loadLI(); loadYT();
 }
 
 /* ---------- Chat ---------- */
